@@ -29,17 +29,25 @@ void Debug_MessageEncrypt(const EVP_CIPHER *cipher, const uint8_t key_data[], si
 /**
  * 加密函数
  */
+static void Encrypt(
+        vector<uint8_t>& result, // 输出密文内容
+
+        const EVP_CIPHER *cipher_algorithm, // 加密算法
+        const uint8_t key_data[], // 密钥内容
+        size_t key_size, // 密钥长度
+        const uint8_t data[], // 待加密的数据
+        size_t data_size); // 待加密数据的长度
 static void EncryptBinaryData(
         vector<uint8_t>& result, // 输出密文内容
 
         const EVP_CIPHER *cipher_algorithm, // 加密算法
-        vector<uint8_t> key, // 包括密钥内容 key.data() 和密钥长度 key.size()
-        vector<uint8_t> data); // 原始数据
+        const vector<uint8_t>& key, // 包括密钥内容 key.data() 和密钥长度 key.size()
+        const vector<uint8_t>& data); // 原始数据
 static void EncryptString(
         vector<uint8_t>& result, // 输出密文内容
 
         const EVP_CIPHER *cipher_algorithm, // 加密算法
-        vector<uint8_t> key, // 包括密钥内容 key.data() 和密钥长度 key.size()
+        const vector<uint8_t>& key, // 包括密钥内容 key.data() 和密钥长度 key.size()
         string msg); // 原始数据
 
 /**
@@ -180,24 +188,14 @@ static void Decrypt(
     return;
 }
 
-static void EncryptString(
+static void Encrypt(
         vector<uint8_t>& result, // 输出密文内容
 
         const EVP_CIPHER *cipher_algorithm, // 加密算法
-        vector<uint8_t> key, // 包括密钥内容 key.data() 和密钥长度 key.size()
-        string msg) // 原始数据
-{
-    vector<uint8_t> data(msg.length());
-
-    data.assign(msg.data(), msg.data()+msg.length());
-    EncryptBinaryData(result, cipher_algorithm, key, data);
-}
-static void EncryptBinaryData(
-        vector<uint8_t>& result, // 输出密文内容
-
-        const EVP_CIPHER *cipher_algorithm, // 加密算法
-        vector<uint8_t> key, // 包括密钥内容 key.data() 和密钥长度 key.size()
-        vector<uint8_t> source) // 原始数据
+        const uint8_t key_data[], // 密钥内容
+        size_t key_size, // 密钥长度
+        const uint8_t data[], // 待加密的数据
+        size_t data_size) // 待加密数据的长度
 {
     EVP_CIPHER_CTX *ctx;
 
@@ -206,19 +204,19 @@ static void EncryptBinaryData(
     uint8_t ivec[EVP_MAX_IV_LENGTH];
 
     memset(ivec, 0x00, EVP_MAX_IV_LENGTH);
-    EVP_EncryptInit(ctx, cipher_algorithm, key.data(), ivec);
+    EVP_EncryptInit(ctx, cipher_algorithm, key_data, ivec);
 
     uint8_t *encrypted;
-    encrypted = new uint8_t[source.size() + key.size()];
+    encrypted = new uint8_t[data_size + key_size];
 
     int left; // 剩余待加密字节数
-    left = source.size();
+    left = data_size;
     int offset;
     offset = 0;
     while (left > 0) {
         int n;
 
-        EVP_EncryptUpdate(ctx, encrypted+offset, &n, (uint8_t *)source.data()+offset, left);
+        EVP_EncryptUpdate(ctx, encrypted+offset, &n, data+offset, left);
         offset += n;
         left -= n;
     }
@@ -227,10 +225,32 @@ static void EncryptBinaryData(
     if (0) {
         printf("padding_size=%d\n", padding_size);
     }
-    const int n = source.size() + padding_size;
-    result = std::vector<uint8_t>(encrypted, encrypted+n);
+    result = std::vector<uint8_t>(encrypted, encrypted+data_size+padding_size);
     delete[] encrypted;
     EVP_CIPHER_CTX_free(ctx);
+    return;
+}
+
+static void EncryptString(
+        vector<uint8_t>& result, // 输出密文内容
+
+        const EVP_CIPHER *cipher_algorithm, // 加密算法
+        const vector<uint8_t>& key, // 包括密钥内容 key.data() 和密钥长度 key.size()
+        string msg) // 原始数据
+{
+    Encrypt(result, cipher_algorithm, key.data(), key.size(), (const uint8_t *) msg.data(), msg.size());
+    /* 清除原始明文文本数据的副本 */
+    msg.assign(msg.size(), (char) '\0');
+    msg.clear();
+}
+static void EncryptBinaryData(
+        vector<uint8_t>& result, // 输出密文内容
+
+        const EVP_CIPHER *cipher_algorithm, // 加密算法
+        const vector<uint8_t>& key, // 包括密钥内容 key.data() 和密钥长度 key.size()
+        const vector<uint8_t>& source) // 原始数据
+{
+    Encrypt(result, cipher_algorithm, key.data(), key.size(), source.data(), source.size());
     return;
 }
 
