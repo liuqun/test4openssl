@@ -57,7 +57,15 @@ static void Decrypt(
         string& result, // 输出明文内容, C++ string 内容不需要以'\0'结尾
 
         const EVP_CIPHER *cipher_algorithm, // 加解密算法
-        vector<uint8_t> key, // 包括密钥内容 key.data() 和密钥长度 key.size()
+        const uint8_t key_data[], // 密钥内容
+        size_t key_size, // 密钥长度
+        vector<uint8_t> encrypted_msg); // 输入: 密文内容, 密文尾部包含若干填充字节padding
+
+static void Decrypt(
+        string& result, // 输出明文内容, C++ string 内容不需要以'\0'结尾
+
+        const EVP_CIPHER *cipher_algorithm, // 加解密算法
+        const vector<uint8_t>& key, // 包括密钥内容 key.data() 和密钥长度 key.size()
         vector<uint8_t> encrypted_msg); // 输入: 密文内容, 密文尾部包含若干填充字节padding
 
 int main(int argc, char *argv[])
@@ -138,10 +146,63 @@ static void EraseSensitiveData(uint8_t data[], size_t length)
 }
 
 static void Decrypt(
+        string& result, // 输出明文内容, C++ string 内容不需要以'\0'结尾
+
+        const EVP_CIPHER *cipher_algorithm, // 加解密算法
+        const uint8_t key_data[], // 密钥内容
+        size_t key_length, // 密钥长度, 取值一般应该等于 EVP_MAX_KEY_LENGTH
+        vector<uint8_t> encrypted_msg) // 输入: 密文内容, 密文尾部包含若干填充字节padding
+{
+    EVP_CIPHER_CTX *ctx;
+
+    ctx = EVP_CIPHER_CTX_new();
+
+    uint8_t ivec[EVP_MAX_IV_LENGTH];
+
+    memset(ivec, 0x00, EVP_MAX_IV_LENGTH);
+    EVP_DecryptInit_ex(ctx, cipher_algorithm, (ENGINE *)NULL, key_data, ivec);
+    assert(key_length > 0);
+
+    const size_t BufferSize = encrypted_msg.size(); // 密文的长度通常是加密算法中定义的基本数据块大小的整数倍
+    uint8_t *decrypted; // buffer
+
+    decrypted = new uint8_t[BufferSize];
+
+    int n;
+    int result_length;
+
+    result_length = 0;
+    EVP_DecryptUpdate(ctx, decrypted, &n, encrypted_msg.data(),
+            encrypted_msg.size());
+    if (0) {
+        printf("%s():line[%d]: n=%d\n", __func__, __LINE__, n);
+    }
+    result_length += n;
+    assert((long long)result_length <= (long long) BufferSize);
+
+    EVP_DecryptFinal_ex(ctx, decrypted + result_length, &n);
+    if (0) {
+        printf("%s():line[%d]: n=%d\n", __func__, __LINE__, n);
+    }
+    result_length += n;
+    assert((long long)result_length <= (long long) BufferSize);
+
+    /* 输出结果 */
+    result.clear();
+    result.assign((const char *)decrypted, result_length);
+
+    /* 清理临时缓存的明文数据, 清理上下文中的密钥数据 */
+    EraseSensitiveData(decrypted, result_length);
+    delete[] decrypted;
+    EVP_CIPHER_CTX_free(ctx);
+    return;
+}
+
+static void Decrypt(
         string& result, // 输出明文内容
 
         const EVP_CIPHER *cipher_algorithm, // 加解密算法
-        vector<uint8_t> key, // 包括密钥内容 key.data() 和密钥长度 key.size()
+        const vector<uint8_t>& key, // 包括密钥内容 key.data() 和密钥长度 key.size()
         vector<uint8_t> encrypted_msg) // 输入: 密文内容
 {
     EVP_CIPHER_CTX *ctx;
