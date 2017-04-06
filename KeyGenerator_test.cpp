@@ -35,7 +35,7 @@ static void EncryptBinaryData(
         const EVP_CIPHER *cipher_algorithm, // 加密算法
         vector<uint8_t> key, // 包括密钥内容 key.data() 和密钥长度 key.size()
         vector<uint8_t> data); // 原始数据
-static void Encrypt(
+static void EncryptString(
         vector<uint8_t>& result, // 输出密文内容
 
         const EVP_CIPHER *cipher_algorithm, // 加密算法
@@ -180,7 +180,7 @@ static void Decrypt(
     return;
 }
 
-static void Encrypt(
+static void EncryptString(
         vector<uint8_t>& result, // 输出密文内容
 
         const EVP_CIPHER *cipher_algorithm, // 加密算法
