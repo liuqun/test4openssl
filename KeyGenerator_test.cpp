@@ -10,6 +10,7 @@
 #include <time.h>
 #include <stdint.h>
 #include <vector>
+#include <string>
 using namespace std;
 
 /* 排版格式: 以下函数均使用4个空格缩进，不使用Tab缩进 */
@@ -23,6 +24,16 @@ static
 void Debug_MessageEncrypt(const EVP_CIPHER *cipher, const uint8_t key_data[], size_t key_length, const uint8_t msg[], size_t msg_length);
 
 }
+
+/**
+ * 加密函数
+ */
+static void Encrypt(
+        vector<uint8_t>& result, // 输出密文内容
+
+        const EVP_CIPHER *cipher_algorithm, // 加密算法
+        vector<uint8_t> key, // 包括密钥内容 key.data() 和密钥长度 key.size()
+        string msg); // 原始数据
 
 int main(int argc, char *argv[])
 {
@@ -63,7 +74,60 @@ int main(int argc, char *argv[])
 
     Debug_MessageEncrypt(cipher, key.data(), key.size(), (const uint8_t *) msg, strlen(msg));
 
+    vector<uint8_t> encrypted;
+
+    Encrypt(encrypted, cipher, key, msg);
+    if (debug) {
+        printf("encrypted: 0x%02x,", encrypted[0]);
+        for (size_t i=1; i<encrypted.size(); i++) {
+            printf("0x%02x,", encrypted[i]);
+        }
+        printf("\n");
+    }
+
     return (0);
+}
+
+static void Encrypt(
+        vector<uint8_t>& result, // 输出密文内容
+
+        const EVP_CIPHER *cipher_algorithm, // 加密算法
+        vector<uint8_t> key, // 包括密钥内容 key.data() 和密钥长度 key.size()
+        string msg) // 原始数据
+{
+    EVP_CIPHER_CTX context;
+
+    EVP_CIPHER_CTX_init(&context);
+
+    uint8_t ivec[EVP_MAX_IV_LENGTH];
+
+    memset(ivec, 0x00, EVP_MAX_IV_LENGTH);
+    EVP_EncryptInit(&context, cipher_algorithm, key.data(), ivec);
+
+    uint8_t *msg_encrypted;
+    msg_encrypted = new uint8_t[msg.size() + key.size()];
+
+    int left; // 剩余待加密字节数
+    left = msg.size();
+    int offset;
+    offset = 0;
+    while (left > 0) {
+        int n;
+
+        EVP_EncryptUpdate(&context, msg_encrypted+offset, &n, (uint8_t *)msg.data()+offset, left);
+        offset += n;
+        left -= n;
+    }
+    int padding_size;
+    EVP_EncryptFinal(&context, msg_encrypted+offset, &padding_size);
+    if (0) {
+        printf("padding_size=%d\n", padding_size);
+    }
+    const int n = msg.size() + padding_size;
+    result = std::vector<uint8_t>(msg_encrypted, msg_encrypted+n);
+    delete[] msg_encrypted;
+    EVP_CIPHER_CTX_cleanup(&context);
+    return;
 }
 
 static void Debug_MessageEncrypt(const EVP_CIPHER *cipher, const uint8_t key_data[], size_t key_length, const uint8_t msg[], size_t msg_length)
