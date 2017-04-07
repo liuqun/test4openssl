@@ -9,6 +9,7 @@
 #include <openssl/evp.h>
 #include <time.h>
 #include <stdint.h>
+#include <vector>
 using namespace std;
 
 /* 排版格式: 以下函数均使用4个空格缩进，不使用Tab缩进 */
@@ -34,25 +35,24 @@ int main(int argc, char *argv[])
         printf("Debug message: 随机数种子 seed=0x%X\n", (unsigned int) seed);
     }
     srand(seed);
-    struct {
-        int length;
-        uint8_t data[EVP_MAX_KEY_LENGTH];
-        uint8_t END_OF_KEY;
-    } key;
-    key.length = sizeof(key.data);
-    for (int i=0; i<key.length; i++) {
-        key.data[i] = rand();
+    vector<uint8_t> key(EVP_MAX_KEY_LENGTH);
+    printf("Debug message: key.size()=%d\n", key.size());
+    for (size_t i=0; i<key.size(); i++) {
+        key[i] = rand();
     }
     if (debug) {
         uint8_t *p;
-        p = key.data;
+        p = key.data();
+        const uint8_t * const END_OF_KEY = key.data() + key.size();
+
         printf("Debug message: 密钥内容为敏感数据, 仅在调试模式下可以打印密钥内容\n");
-        printf("key.data[]={0x%02x,", *p++);
-        while (p < &(key.END_OF_KEY)) {
+        printf("key.data()={0x%02x,", *p++);
+        while (p < END_OF_KEY) {
             printf("0x%02x,", *p++);
         }
-        printf("}\nkey.length=%d\n", key.length);
+        printf("}\nkey.size()=%d\n", key.size());
     }
+
     const EVP_CIPHER *Cipher_Blowfish_CBC = EVP_bf_cbc();
     const EVP_CIPHER *cipher = Cipher_Blowfish_CBC;
     const char msg[] = "This is a plain message for test";
@@ -61,7 +61,7 @@ int main(int argc, char *argv[])
         printf("strlen(msg)=%d\n", strlen(msg));
     }
 
-    Debug_MessageEncrypt(cipher, key.data, key.length, (const uint8_t *) msg, strlen(msg));
+    Debug_MessageEncrypt(cipher, key.data(), key.size(), (const uint8_t *) msg, strlen(msg));
 
     return (0);
 }
