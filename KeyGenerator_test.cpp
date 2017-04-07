@@ -76,7 +76,7 @@ int main(int argc, char *argv[])
         }
         printf("\n");
     }
-    delete msg_encrypted;
+    delete[] msg_encrypted;
     if (debug) {
     }
     return (0);
