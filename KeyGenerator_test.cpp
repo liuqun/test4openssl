@@ -166,14 +166,14 @@ static void Encrypt(
         vector<uint8_t> key, // 包括密钥内容 key.data() 和密钥长度 key.size()
         string msg) // 原始数据
 {
-    EVP_CIPHER_CTX context;
+    EVP_CIPHER_CTX *ctx;
 
-    EVP_CIPHER_CTX_init(&context);
+    ctx = EVP_CIPHER_CTX_new();
 
     uint8_t ivec[EVP_MAX_IV_LENGTH];
 
     memset(ivec, 0x00, EVP_MAX_IV_LENGTH);
-    EVP_EncryptInit(&context, cipher_algorithm, key.data(), ivec);
+    EVP_EncryptInit(ctx, cipher_algorithm, key.data(), ivec);
 
     uint8_t *msg_encrypted;
     msg_encrypted = new uint8_t[msg.size() + key.size()];
@@ -185,31 +185,31 @@ static void Encrypt(
     while (left > 0) {
         int n;
 
-        EVP_EncryptUpdate(&context, msg_encrypted+offset, &n, (uint8_t *)msg.data()+offset, left);
+        EVP_EncryptUpdate(ctx, msg_encrypted+offset, &n, (uint8_t *)msg.data()+offset, left);
         offset += n;
         left -= n;
     }
     int padding_size;
-    EVP_EncryptFinal(&context, msg_encrypted+offset, &padding_size);
+    EVP_EncryptFinal(ctx, msg_encrypted+offset, &padding_size);
     if (0) {
         printf("padding_size=%d\n", padding_size);
     }
     const int n = msg.size() + padding_size;
     result = std::vector<uint8_t>(msg_encrypted, msg_encrypted+n);
     delete[] msg_encrypted;
-    EVP_CIPHER_CTX_cleanup(&context);
+    EVP_CIPHER_CTX_free(ctx);
     return;
 }
 
 static void Debug_MessageEncrypt(const EVP_CIPHER *cipher, const uint8_t key_data[], size_t key_length, const uint8_t msg[], size_t msg_length)
 {
-    EVP_CIPHER_CTX context;
-    EVP_CIPHER_CTX_init(&context);
+    EVP_CIPHER_CTX *ctx;
+    ctx = EVP_CIPHER_CTX_new();
 
     uint8_t ivec[EVP_MAX_IV_LENGTH];
 
     memset(ivec, 0x00, EVP_MAX_IV_LENGTH);
-    EVP_EncryptInit(&context, cipher, key_data, ivec);
+    EVP_EncryptInit(ctx, cipher, key_data, ivec);
 
     uint8_t *msg_encrypted;
     msg_encrypted = new uint8_t[msg_length + key_length];
@@ -221,12 +221,12 @@ static void Debug_MessageEncrypt(const EVP_CIPHER *cipher, const uint8_t key_dat
     while (left > 0) {
         int n;
 
-        EVP_EncryptUpdate(&context, msg_encrypted+offset, &n, (uint8_t *)msg+offset, left);
+        EVP_EncryptUpdate(ctx, msg_encrypted+offset, &n, (uint8_t *)msg+offset, left);
         offset += n;
         left -= n;
     }
     int padding_len;
-    EVP_EncryptFinal(&context, msg_encrypted+offset, &padding_len);
+    EVP_EncryptFinal(ctx, msg_encrypted+offset, &padding_len);
 
     printf("padding_len=%d\n", padding_len);
     const int n = msg_length + padding_len;
@@ -237,7 +237,7 @@ static void Debug_MessageEncrypt(const EVP_CIPHER *cipher, const uint8_t key_dat
     printf("\n");
 
     delete[] msg_encrypted;
-    EVP_CIPHER_CTX_cleanup(&context);
+    EVP_CIPHER_CTX_free(ctx);
     return;
 }
 
