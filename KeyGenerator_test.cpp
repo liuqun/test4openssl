@@ -228,21 +228,24 @@ static void Encrypt(
     EVP_EncryptInit(ctx, cipher_algorithm, key_data, ivec);
 
     uint8_t *encrypted;
-    encrypted = new uint8_t[data_size + key_size];
-
-    int left; // 剩余待加密字节数
-    left = data_size;
+    encrypted = new uint8_t[data_size + EVP_CIPHER_block_size(cipher_algorithm)];
+//EVP_EncryptUpdate(EVP_CIPHER_CTX *ctx, unsigned char *out, int *out_length, unsigned char *in, int in_length);
+//该函数执行对数据的加密。
+//该函数加密从参数in输入的长度为inl的数据，并将加密好的数据写入到参数out里面去。
+//可以通过反复调用该函数来处理一个连续的数据块。
+//写入到out的数据数量是由已经加密的数据的对齐关系决定的，理论上来说，out_length从0到(in_length+cipher_block_size)的任何一个数字都有可能（单位是字节），所以输出的参数out要有足够的空间存储数据。
+//写入到out中的实际数据长度保存在 out_length 参数中。
+//操作成功返回1，否则返回0。
+    int n;
     int offset;
-    offset = 0;
-    while (left > 0) {
-        int n;
-
-        EVP_EncryptUpdate(ctx, encrypted+offset, &n, data+offset, left);
-        offset += n;
-        left -= n;
-    }
     int padding_size;
-    EVP_EncryptFinal(ctx, encrypted+offset, &padding_size);
+
+    EVP_EncryptUpdate(ctx, encrypted, &n, data, data_size);
+    offset = n;
+
+    EVP_EncryptFinal(ctx, encrypted+offset, &n);
+    offset += n;
+    padding_size = n;
     if (0) {
         printf("padding_size=%d\n", padding_size);
     }
